@@ -1,0 +1,97 @@
+# =========================================================
+# General
+# =========================================================
+
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# =========================================================
+# IDE
+# =========================================================
+
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# =========================================================
+# Environment / Secrets
+# =========================================================
+
+.env
+.env.*
+!.env.example
+
+# =========================================================
+# FRONTEND - React + Vite
+# =========================================================
+
+# Node modules
+/frontend/node_modules/
+
+# Vite build
+/frontend/dist/
+/frontend/.vite/
+
+# React build
+/frontend/build/
+
+# Logs
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/pnpm-debug.log*
+
+# TypeScript
+/frontend/*.tsbuildinfo
+/frontend/tsconfig.tsbuildinfo
+
+# Test coverage
+/frontend/coverage/
+
+# ESLint cache
+/frontend/.eslintcache
+
+# =========================================================
+# BACKEND - Spring Boot / Maven
+# =========================================================
+
+# Maven target
+/backend/target/
+
+# Maven logs
+/backend/*.log
+
+# Compiled Java
+/backend/**/*.class
+
+# Local Spring configuration containing secrets
+/backend/src/main/resources/application-local.yml
+/backend/src/main/resources/application-local.yaml
+/backend/src/main/resources/application-local.properties
+
+# JVM crash logs
+/backend/hs_err_pid*
+/backend/replay_pid*
+
+# =========================================================
+# OS
+# =========================================================
+
+# Windows
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+
+# Linux
+*~

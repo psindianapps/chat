@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: chat
+server:
+  port:8086
+
+jwt:
+  secret: TaK+HaV^uvCHEFsEVfypW#7g9^k*Z8$V
+  expiration: 3600000
