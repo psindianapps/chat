@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: chat
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/chat_system?useSSL=false&serverTimezone=UTC
+    username: root
+    password: root
+
+  jackson:
+    serialization:
+      fail-on-empty-beans: false
+    default-property-inclusion: non_null
+
+  cloud:
+    gateway:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+server:
+  port: 8086
+
+jwt:
+  secret: TaK+HaV^uvCHEFsEVfypW#7g9^k*Z8$V
+  expiration: 3600000
