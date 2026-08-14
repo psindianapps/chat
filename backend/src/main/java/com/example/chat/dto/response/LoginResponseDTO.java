@@ -8,6 +8,6 @@ import lombok.Data;
 public class  LoginResponseDTO {
     private String username;
     private String email;
-    private String status;
+    private Integer status;
     private String token;
 }

@@ -5,9 +5,10 @@ import {
   Routes,
 } from "react-router-dom";
 
-import Login from "./components/Login";
+import Login from "./pages/Login";
 import ChatScreen from "./components/ChatScreen";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import Register from "./pages/Register";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Protected routes */}
         <Route element={<ProtectedRoute />}>

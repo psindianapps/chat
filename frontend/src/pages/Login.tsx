@@ -1,39 +1,56 @@
 import { useState } from "react";
 import { Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
+import "./Login.scss";
+import { Link, useNavigate } from "react-router-dom";
+import { login } from "../apis/apis";
+import alertify from 'alertifyjs';
 
 const Login = () => {
+  const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const handleSubmit = async () => {
-
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
 
-    if (!username.trim() || !password.trim()) {
-      setError("Please enter username and password.");
-      return;
-    }
+    // if (!username.trim() || !password.trim()) {
+    //   setError("Please enter username and password.");
+    //   return;
+    // }
 
     try {
       setLoading(true);
 
-      console.log({
-        username,
-        password,
+      await login({username, password}).then((response) => {
+        if (response.data.success) {
+          localStorage.setItem("username",response.data.data.username);
+          localStorage.setItem("email",response.data.data.email);
+          localStorage.setItem("token",response.data.data.token);
+          alertify.success(response.data.message);
+          navigate("/chat");
+        }
+      }).catch((error) => {
+        const response = error.response?.data;
+
+        if (response?.errors) {
+          Object.values(response.errors).forEach((message) => {
+            alertify.error(message);
+          });
+        } else {
+          alertify.error(
+            response?.message || "Login failed. Please try again."
+          );
+        }
       });
 
-      // Example:
-      // const response = await axios.post("/auth/login", {
-      //   username,
-      //   password,
-      // });
-
     } catch (error) {
-      setError("Invalid username or password.");
       console.error(error);
+      alertify.error("Unable to Login. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -75,6 +92,7 @@ const Login = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
+                className="form-control"
               />
             </div>
           </div>
@@ -94,6 +112,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                className="form-control"
               />
 
               <button
@@ -143,9 +162,9 @@ const Login = () => {
 
         <p className="signup-text">
           Don't have an account?{" "}
-          <button type="button" className="signup-link">
+          <Link to="/register" className="signup-link text-decoration-none">
             Create account
-          </button>
+          </Link>
         </p>
 
       </div>

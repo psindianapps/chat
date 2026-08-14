@@ -4,6 +4,7 @@ import com.example.chat.service.UserDetailServiceImpl;
 import com.example.chat.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -29,9 +30,21 @@ public class JwtFilter implements WebFilter {
             ServerWebExchange exchange,
             WebFilterChain chain) {
 
+        HttpMethod method = exchange.getRequest().getMethod();
+
+        if (method == HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
         String path = exchange.getRequest()
                 .getURI()
                 .getPath();
+
+        if (path.startsWith("/public") ||
+                path.startsWith("/auth")) {
+
+            return chain.filter(exchange);
+        }
 
         // Public APIs ko JWT ki zarurat nahi
         if (path.startsWith("/public") ||
