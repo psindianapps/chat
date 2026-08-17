@@ -42,4 +42,16 @@ public class LoginController {
             return ResponseEntity.badRequest().build();
         }
     }
+    public ResponseEntity<ApiResponse<LoginResponseDTO>> userAuthenticate(@Valid @RequestParam String token) {
+        try {
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    200,
+                    "User Authorized",
+                    userService.userAuthenticated(token)
+            ));
+        } catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

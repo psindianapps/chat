@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -53,13 +54,32 @@ public class JwtFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        if (path.equals("/chat")) {
+
+            String wsToken = exchange.getRequest()
+                    .getQueryParams()
+                    .getFirst("token");
+
+            if (wsToken != null) {
+
+                ServerHttpRequest mutatedRequest = exchange.getRequest()
+                        .mutate()
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + wsToken)
+                        .build();
+
+                exchange = exchange.mutate()
+                        .request(mutatedRequest)
+                        .build();
+            }
+        }
+
         String authorizationHeader = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION);
 
+
         // Token missing
-        if (authorizationHeader == null ||
-                !authorizationHeader.startsWith("Bearer ")) {
+        if ((authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) ) {
 
             return unauthorized(exchange);
         }
@@ -79,6 +99,7 @@ public class JwtFilter implements WebFilter {
              * synchronous hai, isliye blocking call ko
              * boundedElastic thread par execute kar rahe hain.
              */
+            final ServerWebExchange finalExchange = exchange;
             return Mono.fromCallable(() ->
                             userDetailService.loadUserByUsername(username)
                     )
@@ -86,11 +107,11 @@ public class JwtFilter implements WebFilter {
                     .flatMap(userDetails -> {
 
                         if (!userDetails.isEnabled()) {
-                            return unauthorized(exchange);
+                            return unauthorized(finalExchange);
                         }
 
                         if (!jwtUtils.validateToken(token)) {
-                            return unauthorized(exchange);
+                            return unauthorized(finalExchange);
                         }
 
                         Authentication authentication =
@@ -100,14 +121,14 @@ public class JwtFilter implements WebFilter {
                                         userDetails.getAuthorities()
                                 );
 
-                        return chain.filter(exchange)
+                        return chain.filter(finalExchange)
                                 .contextWrite(
                                         ReactiveSecurityContextHolder
                                                 .withAuthentication(authentication)
                                 );
                     })
                     .onErrorResume(error ->
-                            unauthorized(exchange)
+                            unauthorized(finalExchange)
                     );
 
         } catch (Exception e) {

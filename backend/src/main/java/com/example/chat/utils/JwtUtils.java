@@ -1,8 +1,11 @@
 package com.example.chat.utils;
 
+import com.example.chat.entity.UserEntity;
+import com.example.chat.respository.UserRepo;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +16,9 @@ import java.util.Map;
 
 @Component
 public class JwtUtils {
+
+    @Autowired
+    public  CommonUtils commonUtils;
 
     @Value("${jwt.secret}")
     private String SECRET_KEY;
@@ -25,7 +31,11 @@ public class JwtUtils {
     }
 
     public String generateToken(String username) {
+        UserEntity user = commonUtils.getUserByUsername(username);
         Map<String, Object> claims = new HashMap<>();
+        claims.put("id", user.getId());
+        claims.put("username", user.getUsername());
+        claims.put("email", user.getEmail());
         return createToken(claims, username);
     }
 
@@ -44,6 +54,11 @@ public class JwtUtils {
     public String  extractUsername(String token) {
         Claims claims = parseToken(token);
         return claims.getSubject();
+    }
+
+    public Long  extractUserId(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("id", Long.class);
     }
 
     private Claims parseToken(String token) {

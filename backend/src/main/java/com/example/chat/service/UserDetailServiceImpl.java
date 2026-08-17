@@ -1,6 +1,7 @@
 package com.example.chat.service;
 
 import com.example.chat.entity.UserEntity;
+import com.example.chat.filter.CustomUserDetails;
 import com.example.chat.respository.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
@@ -16,6 +17,7 @@ public class UserDetailServiceImpl implements UserDetailsService {
     @Autowired
     private UserRepo userRepo;
 
+    /*
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Optional<UserEntity> userEntity = userRepo.findByUsername(username);
@@ -27,4 +29,13 @@ public class UserDetailServiceImpl implements UserDetailsService {
         }
         throw new UsernameNotFoundException(username);
     }
+    */
+
+    @Override
+    public UserDetails loadUserByUsername(String username) {
+        UserEntity user = userRepo.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        return new CustomUserDetails(user);
+    }
+
 }

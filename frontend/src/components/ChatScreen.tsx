@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Search,
   Send,
@@ -8,7 +8,7 @@ import {
   Paperclip,
   Smile,
 } from "lucide-react";
-import "./chat.scss"
+import "./chat.scss";
 
 interface ChatUser {
   id: number;
@@ -17,7 +17,6 @@ interface ChatUser {
   time: string;
   online: boolean;
 }
-
 
 const users: ChatUser[] = [
   {
@@ -44,52 +43,112 @@ const users: ChatUser[] = [
 ];
 
 interface Message {
-  id: number;
-  text: string;
-  sender: "me" | "other";
-  time: string;
+  sender: string;
+  receiver?: string;
+  message: string;
+  time?: string;
 }
-
-const initialMessages: Message[] = [
-  {
-    id: 1,
-    text: "Hey, how are you?",
-    sender: "other",
-    time: "10:28 AM",
-  },
-  {
-    id: 2,
-    text: "I'm good! How about you?",
-    sender: "me",
-    time: "10:29 AM",
-  },
-  {
-    id: 3,
-    text: "I'm doing great 👍",
-    sender: "other",
-    time: "10:30 AM",
-  },
-];
 
 function ChatScreen() {
   const [selectedUser, setSelectedUser] = useState<ChatUser>(users[0]);
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const token = localStorage.getItem('token');
+  // WebSocket reference
+  const socket = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    console.log("Connecting WebSocket...");
+
+    const ws = new WebSocket(
+      `ws://localhost:8086/chat?token=${token}`
+    );
+
+    // Connection successful
+    ws.onopen = () => {
+      console.log("✅ WebSocket connected");
+    };
+
+    // Message received from Spring Boot
+    ws.onmessage = (event) => {
+      console.log("📩 Received:", event.data);
+
+      try {
+        const receivedMessage: Message =
+          JSON.parse(event.data);
+
+        setMessages((prev) => [
+          ...prev,
+          receivedMessage,
+        ]);
+      } catch (error) {
+        console.error(
+          "❌ Invalid message received:",
+          event.data
+        );
+      }
+    };
+
+    // WebSocket error
+    ws.onerror = (error) => {
+      console.error(
+        "❌ WebSocket error:",
+        error
+      );
+    };
+
+    // Connection closed
+    ws.onclose = () => {
+      console.log(
+        "🔴 WebSocket disconnected"
+      );
+    };
+
+    socket.current = ws;
+
+    // Cleanup
+    return () => {
+      ws.close();
+      socket.current = null;
+    };
+  }, []);
 
   const sendMessage = () => {
-    if (!message.trim()) return;
+    if (!message.trim()) {
+      return;
+    }
 
-    const newMessage: Message = {
-      id: Date.now(),
-      text: message,
-      sender: "me",
+    // Check WebSocket connection
+    if (
+      !socket.current ||
+      socket.current.readyState !== WebSocket.OPEN
+    ) {
+      console.error(
+        "❌ WebSocket is not connected"
+      );
+      return;
+    }
+
+    const chatMessage: Message = {
+      sender: localStorage.getItem('username') == "aman" ? "aman" : "amit",
+      receiver: localStorage.getItem('username') == "aman" ? "amit" : "aman",
+      message: message,
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    console.log(
+      "📤 Sending:",
+      chatMessage
+    );
+
+    // Send message to Spring Boot
+    socket.current.send(
+      JSON.stringify(chatMessage)
+    );
+
     setMessage("");
   };
 
@@ -110,6 +169,7 @@ function ChatScreen() {
         {/* Search */}
         <div className="search-box">
           <Search size={18} />
+
           <input
             type="text"
             placeholder="Search chats..."
@@ -118,30 +178,55 @@ function ChatScreen() {
 
         {/* Users */}
         <div className="chat-users">
+
           {users.map((user) => (
             <div
               key={user.id}
               className={`chat-user ${
-                selectedUser.id === user.id ? "active" : ""
+                selectedUser.id === user.id
+                  ? "active"
+                  : ""
               }`}
-              onClick={() => setSelectedUser(user)}
+              onClick={() =>
+                setSelectedUser(user)
+              }
             >
+
               <div className="avatar">
+
                 {user.name.charAt(0)}
-                {user.online && <span className="online-dot" />}
+
+                {user.online && (
+                  <span className="online-dot" />
+                )}
+
               </div>
 
               <div className="user-info">
+
                 <div className="user-name-row">
-                  <strong>{user.name}</strong>
-                  <span>{user.time}</span>
+
+                  <strong>
+                    {user.name}
+                  </strong>
+
+                  <span>
+                    {user.time}
+                  </span>
+
                 </div>
 
-                <p>{user.message}</p>
+                <p>
+                  {user.message}
+                </p>
+
               </div>
+
             </div>
           ))}
+
         </div>
+
       </aside>
 
       {/* Chat Area */}
@@ -153,20 +238,33 @@ function ChatScreen() {
           <div className="selected-user">
 
             <div className="avatar">
+
               {selectedUser.name.charAt(0)}
-              {selectedUser.online && <span className="online-dot" />}
+
+              {selectedUser.online && (
+                <span className="online-dot" />
+              )}
+
             </div>
 
             <div>
-              <h3>{selectedUser.name}</h3>
+
+              <h3>
+                {selectedUser.name}
+              </h3>
+
               <span>
-                {selectedUser.online ? "Online" : "Offline"}
+                {selectedUser.online
+                  ? "Online"
+                  : "Offline"}
               </span>
+
             </div>
 
           </div>
 
           <div className="chat-actions">
+
             <button>
               <Phone size={20} />
             </button>
@@ -178,6 +276,7 @@ function ChatScreen() {
             <button>
               <MoreVertical size={20} />
             </button>
+
           </div>
 
         </header>
@@ -185,18 +284,31 @@ function ChatScreen() {
         {/* Messages */}
         <div className="messages-container">
 
-          {messages.map((msg) => (
+          {messages.map((msg, index) => (
+
             <div
-              key={msg.id}
+              key={index}
               className={`message-wrapper ${
-                msg.sender === "me" ? "sent" : "received"
+                msg.sender === "aman"
+                  ? "sent"
+                  : "received"
               }`}
             >
+
               <div className="message">
-                <p>{msg.text}</p>
-                <span>{msg.time}</span>
+
+                <p>
+                  {msg.message}
+                </p>
+
+                <span>
+                  {msg.time || "Now"}
+                </span>
+
               </div>
+
             </div>
+
           ))}
 
         </div>
@@ -212,11 +324,15 @@ function ChatScreen() {
             type="text"
             placeholder="Type a message..."
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) =>
+              setMessage(e.target.value)
+            }
             onKeyDown={(e) => {
+
               if (e.key === "Enter") {
                 sendMessage();
               }
+
             }}
           />
 
@@ -234,6 +350,7 @@ function ChatScreen() {
         </div>
 
       </main>
+
     </div>
   );
 }

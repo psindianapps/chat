@@ -31,7 +31,6 @@ public class UserService {
         userEntity.setUsername(registerRequestDTO.getUsername());
         userEntity.setEmail(registerRequestDTO.getEmail());
         userEntity.setPassword(passwordEncoder.encode(registerRequestDTO.getPassword()));
-        userEntity.setStatus(1);
         userRepo.save(userEntity);
         return new ApiResponse<>(
                 true,
@@ -56,9 +55,34 @@ public class UserService {
         }
         String token = jwtUtils.generateToken(userEntity.getUsername());
         return new LoginResponseDTO(
+                userEntity.getId(),
                 userEntity.getUsername(),
                 userEntity.getEmail(),
-                userEntity.getStatus(),
+                userEntity.getDisplayName(),
+                userEntity.getProfilePicUrl(),
+                userEntity.getStatusMessage(),
+                userEntity.getLastSeen(),
+                userEntity.isOnline(),
+                token
+        );
+    }
+
+    public LoginResponseDTO userAuthenticated(String token) {
+        boolean isValidated = jwtUtils.validateToken(token);
+        if(!isValidated){
+            throw new UsernameNotFoundException("Unauthorized User");
+        }
+        String username = jwtUtils.extractUsername(token);
+        UserEntity userEntity =  userRepo.findByUsername(username).get();
+        return new LoginResponseDTO(
+                userEntity.getId(),
+                userEntity.getUsername(),
+                userEntity.getEmail(),
+                userEntity.getDisplayName(),
+                userEntity.getProfilePicUrl(),
+                userEntity.getStatusMessage(),
+                userEntity.getLastSeen(),
+                userEntity.isOnline(),
                 token
         );
     }
