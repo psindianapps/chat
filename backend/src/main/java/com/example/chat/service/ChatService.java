@@ -1,17 +1,29 @@
 package com.example.chat.service;
 
+import com.example.chat.config.Constants;
+import com.example.chat.dto.request.ChatMessageRequest;
+import com.example.chat.dto.response.ApiResponse;
+import com.example.chat.dto.response.ConversationListDTO;
 import com.example.chat.dto.response.LoginResponseDTO;
-import com.example.chat.entity.UserEntity;
-import com.example.chat.filter.CustomUserDetails;
-import com.example.chat.respository.UserRepo;
+import com.example.chat.dto.response.MessageDTO;
+import com.example.chat.entity.*;
+import com.example.chat.enums.ConversationRoleEnum;
+import com.example.chat.enums.ConversationTypeEnum;
+import com.example.chat.enums.MessageStatusEnum;
+import com.example.chat.enums.MessageTypeEnum;
+import com.example.chat.respository.*;
+import com.example.chat.specification.UserSpecification;
 import com.example.chat.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,13 +36,36 @@ public class ChatService {
     @Autowired
     private JwtUtils jwtUtils;
 
-    public List<LoginResponseDTO> getAllUsers(Long currentUserId) {
+    @Autowired
+    private Constants constants;
 
-        List<UserEntity> users = userRepo.findAllUser(currentUserId);
+    @Autowired
+    private ConversationRepo conversationRepo;
 
-        return users.stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+    @Autowired
+    private ConverstaionParticipantRepo  converstaionParticipantRepo;
+
+    @Autowired
+    private MessagesRepo messagesRepo;
+
+
+    @Autowired
+    private MessageStatusRepo messageStatusRepo;
+
+    public Page<LoginResponseDTO> getAllUsers(String search, Long currentUserId, int pageNumber) {
+
+        Specification<UserEntity> specification = UserSpecification.searchUsers(search, currentUserId);
+
+
+        Pageable pageable = PageRequest.of(
+                                pageNumber,
+                                Integer.parseInt(constants.getPageSize()),
+                                Sort.by(Sort.Direction.DESC, "id")
+                            );
+
+        Page<UserEntity> users = userRepo.findAll(specification,pageable);
+
+        return users.map(this::mapToDTO);
     }
 
 
@@ -48,6 +83,131 @@ public class ChatService {
                 user.isOnline(),
                 ""
         );
+    }
+
+
+    public ApiResponse<Object> sendMessage(ChatMessageRequest request) throws Exception {
+        try {
+            UserEntity sender = userRepo.findById(
+                    Long.valueOf(request.getSender())
+            ).orElseThrow(() -> new RuntimeException("Sender not found"));
+
+            UserEntity receiver = userRepo.findById(
+                    Long.valueOf(request.getReceiver())
+            ).orElseThrow(() -> new RuntimeException("Receiver not found"));
+
+            // 1. Pehle check karo — dono users ke beech conversation already exist karta hai kya
+            ConversationEntity conversation = conversationRepo.findIndividualConversationBetween(sender.getId(), receiver.getId())
+                    .orElse(null);
+
+            if (conversation == null) {
+                conversation = new ConversationEntity();
+                conversation.setType(ConversationTypeEnum.INDIVIDUAL);
+                conversation.setCreatedBy(sender);
+                conversation = conversationRepo.save(conversation);
+
+                ConversationParticipantEntity senderCpe = new ConversationParticipantEntity();
+                senderCpe.setConversationId(conversation);
+                senderCpe.setUserId(sender);
+                senderCpe.setRole(ConversationRoleEnum.MEMBER);
+                converstaionParticipantRepo.save(senderCpe);
+
+                ConversationParticipantEntity receiverCpe = new ConversationParticipantEntity();
+                receiverCpe.setConversationId(conversation);
+                receiverCpe.setUserId(receiver);
+                receiverCpe.setRole(ConversationRoleEnum.MEMBER);
+                converstaionParticipantRepo.save(receiverCpe);
+            }
+
+            // 3. Message insert karo
+            MessageEntity messageEntity = new MessageEntity();
+            messageEntity.setConversationId(conversation.getId());
+            messageEntity.setSenderId(sender.getId());
+            messageEntity.setMessageType(MessageTypeEnum.TEXT);
+            messageEntity.setContent(request.getMessage());
+            messageEntity.setStatus(MessageStatusEnum.SENT);
+            messagesRepo.save(messageEntity);
+
+            return new ApiResponse<>(true, 200, "Message sent", null);
+
+        } catch (Exception e) {
+            throw new Exception("error " + e.getMessage());
+        }
+    }
+
+    public Mono<List<ConversationListDTO>> getConversations(Long currentUserId) {
+
+        return Mono.fromCallable(() -> {
+                    List<Object[]> rows = conversationRepo.findConversationsWithDetails(currentUserId);
+                    return rows.stream()
+                            .map(this::mapToConversationListDTO)
+                            .collect(Collectors.toList());
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private ConversationListDTO mapToConversationListDTO(Object[] row) {
+        ConversationListDTO dto = new ConversationListDTO();
+        dto.setConversationId(((Number) row[0]).longValue());
+        dto.setType((String) row[1]);
+        dto.setGroupName((String) row[2]);
+        dto.setGroupIconUrl((String) row[3]);
+        dto.setOtherUserId(row[4] != null ? ((Number) row[4]).longValue() : null);
+        dto.setOtherUsername((String) row[5]);
+        dto.setOtherDisplayName((String) row[6]);
+        dto.setOtherProfilePic((String) row[7]);
+        dto.setOtherIsOnline(row[8] != null && (Boolean) row[8]);
+        dto.setLastMessage((String) row[10]);
+        dto.setLastMessageType((String) row[11]);
+        dto.setLastMessageSenderId(row[13] != null ? ((Number) row[13]).longValue() : null);
+        dto.setUnreadCount(((Number) row[14]).longValue());
+        return dto;
+    }
+
+
+    public Mono<ApiResponse<Page<MessageDTO>>> getMessages(
+            Long conversationId, Long currentUserId, int page, int size) {
+
+        return Mono.fromCallable(() -> {
+
+                    // Security check — user isi conversation ka participant hai kya
+                    boolean isParticipant = converstaionParticipantRepo
+                            .existsByConversationIdAndUserId(conversationId, currentUserId);
+
+                    if (!isParticipant) {
+                        return new ApiResponse<Page<MessageDTO>>(
+                                false, 403, "You are not part of this conversation", null
+                        );
+                    }
+
+                    Pageable pageable = PageRequest.of(page, size);
+                    Page<Object[]> rows = messagesRepo.findMessagesByConversation(conversationId, pageable);
+
+                    Page<MessageDTO> dtoPage = rows.map(this::mapToMessageDTO);
+
+                    return new ApiResponse<>(true, 200, "Messages fetched", dtoPage);
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private MessageDTO mapToMessageDTO(Object[] row) {
+        MessageDTO dto = new MessageDTO();
+        dto.setId(((Number) row[0]).longValue());
+        dto.setConversationId(((Number) row[1]).longValue());
+        dto.setSenderId(((Number) row[2]).longValue());
+        dto.setSenderUsername((String) row[3]);
+        dto.setSenderDisplayName((String) row[4]);
+        dto.setMessageType((String) row[5]);
+        dto.setContent((String) row[6]);
+        dto.setMediaId(row[7] != null ? ((Number) row[7]).longValue() : null);
+        dto.setFileUrl((String) row[8]);
+        dto.setThumbnailUrl((String) row[9]);
+        dto.setFileType((String) row[10]);
+        dto.setDurationSeconds(row[11] != null ? ((Number) row[11]).intValue() : null);
+        dto.setReplyToMessageId(row[12] != null ? ((Number) row[12]).longValue() : null);
+        dto.setStatus((String) row[13]);
+        // createdAt (row[14]) — DB driver ke return type ke hisaab se cast karna, error aaye toh bata dena
+        return dto;
     }
 
 }

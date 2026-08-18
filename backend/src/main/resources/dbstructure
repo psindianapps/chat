@@ -34,6 +34,7 @@ CREATE TABLE conversation_participants (
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id),
     UNIQUE (conversation_id, user_id),
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

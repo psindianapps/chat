@@ -1,6 +1,15 @@
 package com.example.chat.handler;
 
 import com.example.chat.dto.request.ChatMessageRequest;
+import com.example.chat.dto.response.ApiResponse;
+import com.example.chat.entity.MessageEntity;
+import com.example.chat.entity.MessageStatusEntity;
+import com.example.chat.entity.UserEntity;
+import com.example.chat.enums.MessageStatusEnum;
+import com.example.chat.respository.MessageStatusRepo;
+import com.example.chat.respository.MessagesRepo;
+import com.example.chat.respository.UserRepo;
+import com.example.chat.service.ChatService;
 import com.example.chat.utils.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -11,6 +20,7 @@ import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,7 +29,18 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
     @Autowired
     public JwtUtils jwtUtils;
+    
+    @Autowired
+    private ChatService chatService;
 
+    @Autowired
+    private MessagesRepo messageRepo;
+
+    @Autowired
+    private UserRepo userRepo;
+
+    @Autowired
+    private MessageStatusRepo messageStatusRepo;
 
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
@@ -31,19 +52,23 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         String query = session.getHandshakeInfo().getUri().getQuery();
         String token = extractToken(query);
 
-        String username = jwtUtils.extractUsername(token); // apna existing util use karo
-        if (username == null) {
+        String id = String.valueOf(jwtUtils.extractUserId(token));
+        String username = jwtUtils.extractUsername(token);
+        if (id == null) {
             return session.close(CloseStatus.POLICY_VIOLATION);
         }
 
-        sessions.put(username, session);
-        System.out.println("✅ CONNECTED: " + username + " | total online: " + sessions.size());
+        sessions.put(id, session);
+        activeInactiveUser(Long.valueOf(id));
+        deliverPendingMessages(Long.valueOf(id), session);
+        System.out.println("✅ CONNECTED: " + id + " : " + username  +" | total online: " + sessions.size());
 
         return session.receive()
                 .map(WebSocketMessage::getPayloadAsText)
-                .doOnNext(payload -> routeMessage(username, payload))
+                .doOnNext(payload -> routeMessage(id, payload))
                 .doFinally(signal -> {
-                    sessions.remove(username);
+                    sessions.remove(id);
+                    activeInactiveUser(Long.valueOf(id));
                     System.out.println("🔴 DISCONNECTED: " + username);
                 })
                 .then();
@@ -53,15 +78,16 @@ public class ChatWebSocketHandler implements WebSocketHandler {
         try {
             ChatMessageRequest msg = objectMapper.readValue(payload, ChatMessageRequest.class);
 
-            // sender ko hamesha server-side se set karo, client ki value trust mat karo
             msg.setSender(senderUsername);
 
             WebSocketSession receiverSession = sessions.get(msg.getReceiver());
 
             if (receiverSession != null && receiverSession.isOpen()) {
-                String outgoing = objectMapper.writeValueAsString(msg);
-                receiverSession.send(Mono.just(receiverSession.textMessage(outgoing)))
-                        .subscribe();
+                ApiResponse<Object> objectApiResponse = chatService.sendMessage(msg);
+                if (objectApiResponse.isSuccess()) {
+                    String outgoing = objectMapper.writeValueAsString(msg);
+                    receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
+                }
             } else {
                 System.out.println("⚠️ Receiver offline: " + msg.getReceiver());
                 // yahan DB mein message save kar do taaki receiver login karte hi mil jaaye
@@ -81,5 +107,37 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             }
         }
         return null;
+    }
+
+    private void deliverPendingMessages(Long userId, WebSocketSession session) {
+
+        List<MessageEntity> pendingMessages = messageRepo.findUndeliveredMessages(userId);
+
+        for (MessageEntity msg : pendingMessages) {
+
+            try {
+                String payload = objectMapper.writeValueAsString(msg);
+
+                session.send(Mono.just(session.textMessage(payload))).subscribe();
+
+                // DB mein DELIVERED mark karo
+                MessageStatusEntity statusEntity = new MessageStatusEntity();
+                statusEntity.setMessageId(msg.getId());
+                statusEntity.setUserId(userId);
+                statusEntity.setStatus(MessageStatusEnum.DELIVERED);
+                messageStatusRepo.save(statusEntity);
+
+            } catch (Exception e) {
+                System.err.println("❌ Failed to deliver pending message: " + e.getMessage());
+            }
+        }
+
+        System.out.println("📬 Delivered " + pendingMessages.size() + " pending messages to userId=" + userId);
+    }
+
+    private void activeInactiveUser(Long id){
+        UserEntity user = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        user.setOnline(!user.isOnline());
+        userRepo.save(user);
     }
 }

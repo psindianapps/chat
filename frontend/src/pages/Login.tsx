@@ -28,6 +28,7 @@ const Login = () => {
 
       await login({username, password}).then((response) => {
         if (response.data.success) {
+          localStorage.setItem("id",response.data.data.id);
           localStorage.setItem("username",response.data.data.username);
           localStorage.setItem("email",response.data.data.email);
           localStorage.setItem("token",response.data.data.token);
