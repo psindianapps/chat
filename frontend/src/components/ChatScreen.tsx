@@ -137,27 +137,15 @@ function ChatScreen() {
      SIDEBAR STATE
   ======================================================= */
 
-  const [
-    conversations,
-    setConversations,
-  ] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
-  const [
-    searchUsers,
-    setSearchUsers,
-  ] = useState<ChatUser[]>([]);
+  const [searchUsers,setSearchUsers] = useState<ChatUser[]>([]);
 
   const [search, setSearch] = useState("");
 
-  const [
-    loadingConversations,
-    setLoadingConversations,
-  ] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(false);
 
-  const [
-    loadingUsers,
-    setLoadingUsers,
-  ] = useState(false);
+  const [loadingUsers,setLoadingUsers] = useState(false);
 
   /* =======================================================
      CHAT STATE
