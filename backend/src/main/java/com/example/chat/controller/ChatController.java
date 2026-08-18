@@ -54,14 +54,13 @@ public class ChatController {
     @GetMapping("/messages/{conversationId}")
     public Mono<ResponseEntity<ApiResponse<Page<MessageDTO>>>> getMessages(
             @PathVariable Long conversationId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "30") int size) {
+            @RequestParam(defaultValue = "0") int page) {
 
         return ReactiveSecurityContextHolder.getContext()
                 .map(SecurityContext::getAuthentication)
                 .map(auth -> (CustomUserDetails) auth.getPrincipal())
                 .flatMap(userDetails ->
-                        chatService.getMessages(conversationId, userDetails.getId(), page, size)
+                        chatService.getMessages(conversationId, userDetails.getId(), page)
                 )
                 .map(ResponseEntity::ok);
     }

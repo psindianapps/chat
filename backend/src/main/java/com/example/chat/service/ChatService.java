@@ -48,6 +48,9 @@ public class ChatService {
     @Autowired
     private MessagesRepo messagesRepo;
 
+    @Autowired
+    private Constants constants;
+
 
     @Autowired
     private MessageStatusRepo messageStatusRepo;
@@ -166,7 +169,7 @@ public class ChatService {
 
 
     public Mono<ApiResponse<Page<MessageDTO>>> getMessages(
-            Long conversationId, Long currentUserId, int page, int size) {
+            Long conversationId, Long currentUserId, int page) {
 
         return Mono.fromCallable(() -> {
 
@@ -179,7 +182,7 @@ public class ChatService {
                                 false, 403, "You are not part of this conversation", null
                         );
                     }
-
+                    int size = Integer.parseInt(constants.getPageSize());
                     Pageable pageable = PageRequest.of(page, size);
                     Page<Object[]> rows = messagesRepo.findMessagesByConversation(conversationId, pageable);
 
