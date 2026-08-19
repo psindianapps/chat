@@ -89,11 +89,11 @@ public class ChatService {
     public ApiResponse<Object> sendMessage(ChatMessageRequest request) throws Exception {
         try {
             UserEntity sender = userRepo.findById(
-                    Long.valueOf(request.getSender())
+                    request.getSender()
             ).orElseThrow(() -> new RuntimeException("Sender not found"));
 
             UserEntity receiver = userRepo.findById(
-                    Long.valueOf(request.getReceiver())
+                    request.getReceiver()
             ).orElseThrow(() -> new RuntimeException("Receiver not found"));
             ConversationEntity conversation;
             if(request.getConversationId() == null){

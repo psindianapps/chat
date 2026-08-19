@@ -79,9 +79,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private void routeMessage(String senderUsername, String payload) {
         try {
             ChatMessageRequest msg = objectMapper.readValue(payload, ChatMessageRequest.class);
-            msg.setSender(senderUsername);
+            msg.setSender(Long.valueOf(senderUsername));
 
-            // Hamesha save karo, chahe receiver online ho ya na ho
             ApiResponse<Object> objectApiResponse = chatService.sendMessage(msg);
 
             if (!objectApiResponse.isSuccess()) {
@@ -92,24 +91,20 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             ConversationEntity conversation = (ConversationEntity) objectApiResponse.getData();
             msg.setConversationId(conversation.getId());
 
-            WebSocketSession receiverSession = sessions.get(msg.getReceiver());
+            String outgoing = objectMapper.writeValueAsString(msg);
 
+            WebSocketSession receiverSession = sessions.get(String.valueOf(msg.getReceiver()));
             if (receiverSession != null && receiverSession.isOpen()) {
-                String outgoing = objectMapper.writeValueAsString(msg);
                 receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
             } else {
                 System.out.println("⚠️ Receiver offline, message saved for later delivery: " + msg.getReceiver());
             }
 
             WebSocketSession senderSession = sessions.get(senderUsername);
-            String outgoing = objectMapper.writeValueAsString(msg);
-
-            if (receiverSession != null && receiverSession.isOpen()) {
-                receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
-            }
             if (senderSession != null && senderSession.isOpen()) {
                 senderSession.send(Mono.just(senderSession.textMessage(outgoing))).subscribe();
             }
+
         } catch (Exception e) {
             System.err.println("❌ Failed to route message: " + e.getMessage());
         }
@@ -127,17 +122,23 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     }
 
     private void deliverPendingMessages(Long userId, WebSocketSession session) {
-
         List<MessageEntity> pendingMessages = messageRepo.findUndeliveredMessages(userId);
 
         for (MessageEntity msg : pendingMessages) {
-
             try {
-                String payload = objectMapper.writeValueAsString(msg);
+                ChatMessageRequest outgoingMsg = new ChatMessageRequest();
+                outgoingMsg.setId(msg.getId());
+                outgoingMsg.setConversationId(msg.getConversationId());
+                outgoingMsg.setSender(msg.getSenderId());
+                outgoingMsg.setReceiver(userId);
+                outgoingMsg.setMessage(msg.getContent());
+                outgoingMsg.setMessageType(msg.getMessageType().name());
+                outgoingMsg.setStatus(MessageStatusEnum.DELIVERED.name());
+                outgoingMsg.setCreatedAt(msg.getCreatedAt());
 
+                String payload = objectMapper.writeValueAsString(outgoingMsg);
                 session.send(Mono.just(session.textMessage(payload))).subscribe();
 
-                // DB mein DELIVERED mark karo
                 MessageStatusEntity statusEntity = new MessageStatusEntity();
                 statusEntity.setMessageId(msg.getId());
                 statusEntity.setUserId(userId);
@@ -148,8 +149,6 @@ public class ChatWebSocketHandler implements WebSocketHandler {
                 System.err.println("❌ Failed to deliver pending message: " + e.getMessage());
             }
         }
-
-        System.out.println("📬 Delivered " + pendingMessages.size() + " pending messages to userId=" + userId);
     }
 
     private void activeInactiveUser(Long id){
