@@ -111,3 +111,52 @@ CREATE TABLE call_participants (
     FOREIGN KEY (user_id) REFERENCES users(id),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+/*
+
+CREATE TABLE call_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+    conversation_id BIGINT NOT NULL,
+    caller_id BIGINT NOT NULL,
+
+    call_type ENUM('VOICE', 'VIDEO') NOT NULL,
+    status ENUM('MISSED', 'ANSWERED', 'REJECTED', 'ENDED') NOT NULL,
+
+    started_at TIMESTAMP NULL,
+    ended_at TIMESTAMP NULL,
+    duration_seconds INT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (conversation_id)
+        REFERENCES conversations(id),
+
+    FOREIGN KEY (caller_id)
+        REFERENCES users(id)
+);
+
+
+CREATE TABLE call_participants (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+
+    call_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+
+    joined_at TIMESTAMP NULL,
+    left_at TIMESTAMP NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (call_id)
+        REFERENCES call_logs(id)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+);
+*/

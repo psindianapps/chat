@@ -167,6 +167,13 @@ public class ChatService {
         dto.setReceiverIsOnline(row[8] != null && (Boolean) row[8]);
         dto.setLastMessage((String) row[10]);
         dto.setLastMessageType((String) row[11]);
+
+        if (row[12] instanceof java.sql.Timestamp ts) {
+            dto.setLastMessageTime(ts.toLocalDateTime());
+        } else if (row[12] instanceof java.time.LocalDateTime ldt) {
+            dto.setLastMessageTime(ldt);
+        }
+
         dto.setLastMessageSenderId(row[13] != null ? ((Number) row[13]).longValue() : null);
         dto.setUnreadCount(((Number) row[14]).longValue());
         return dto;
@@ -214,7 +221,13 @@ public class ChatService {
         dto.setDurationSeconds(row[11] != null ? ((Number) row[11]).intValue() : null);
         dto.setReplyToMessageId(row[12] != null ? ((Number) row[12]).longValue() : null);
         dto.setStatus((String) row[13]);
-        // createdAt (row[14]) — DB driver ke return type ke hisaab se cast karna, error aaye toh bata dena
+
+        if (row[14] instanceof java.sql.Timestamp ts) {
+            dto.setCreatedAt(ts.toLocalDateTime());
+        } else if (row[14] instanceof java.time.LocalDateTime ldt) {
+            dto.setCreatedAt(ldt);
+        }
+
         return dto;
     }
 
