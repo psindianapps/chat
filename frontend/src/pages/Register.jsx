@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import "./Register.scss";
-import { register } from "../apis/apis";
+import { register } from "../apis/api";
 import alertify from "alertifyjs";
 const Register = () => {
     const navigate = useNavigate();

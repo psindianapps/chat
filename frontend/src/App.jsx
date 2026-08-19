@@ -6,9 +6,9 @@ import {
 } from "react-router-dom";
 
 import Login from "./pages/Login";
-import ChatScreen from "./components/ChatScreen";
-import ProtectedRoute from "./routes/ProtectedRoute";
 import Register from "./pages/Register";
+import ChatScreen from "./components/ChatScreenn";
+import ProtectedRoute from "./utils/ProtectedRoute";
 
 function App() {
   return (

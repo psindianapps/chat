@@ -2,10 +2,12 @@ package com.example.chat.handler;
 
 import com.example.chat.dto.request.ChatMessageRequest;
 import com.example.chat.dto.response.ApiResponse;
+import com.example.chat.entity.ConversationEntity;
 import com.example.chat.entity.MessageEntity;
 import com.example.chat.entity.MessageStatusEntity;
 import com.example.chat.entity.UserEntity;
 import com.example.chat.enums.MessageStatusEnum;
+import com.example.chat.projection.LastMessageProjection;
 import com.example.chat.respository.MessageStatusRepo;
 import com.example.chat.respository.MessagesRepo;
 import com.example.chat.respository.UserRepo;
@@ -77,22 +79,37 @@ public class ChatWebSocketHandler implements WebSocketHandler {
     private void routeMessage(String senderUsername, String payload) {
         try {
             ChatMessageRequest msg = objectMapper.readValue(payload, ChatMessageRequest.class);
-
             msg.setSender(senderUsername);
+
+            // Hamesha save karo, chahe receiver online ho ya na ho
+            ApiResponse<Object> objectApiResponse = chatService.sendMessage(msg);
+
+            if (!objectApiResponse.isSuccess()) {
+                System.err.println("❌ Failed to persist message: " + objectApiResponse.getMessage());
+                return;
+            }
+
+            ConversationEntity conversation = (ConversationEntity) objectApiResponse.getData();
+            msg.setConversationId(conversation.getId());
 
             WebSocketSession receiverSession = sessions.get(msg.getReceiver());
 
             if (receiverSession != null && receiverSession.isOpen()) {
-                ApiResponse<Object> objectApiResponse = chatService.sendMessage(msg);
-                if (objectApiResponse.isSuccess()) {
-                    String outgoing = objectMapper.writeValueAsString(msg);
-                    receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
-                }
+                String outgoing = objectMapper.writeValueAsString(msg);
+                receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
             } else {
-                System.out.println("⚠️ Receiver offline: " + msg.getReceiver());
-                // yahan DB mein message save kar do taaki receiver login karte hi mil jaaye
+                System.out.println("⚠️ Receiver offline, message saved for later delivery: " + msg.getReceiver());
             }
 
+            WebSocketSession senderSession = sessions.get(senderUsername);
+            String outgoing = objectMapper.writeValueAsString(msg);
+
+            if (receiverSession != null && receiverSession.isOpen()) {
+                receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
+            }
+            if (senderSession != null && senderSession.isOpen()) {
+                senderSession.send(Mono.just(senderSession.textMessage(outgoing))).subscribe();
+            }
         } catch (Exception e) {
             System.err.println("❌ Failed to route message: " + e.getMessage());
         }

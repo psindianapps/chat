@@ -26,9 +26,10 @@ export const getConversation = () => {
         }
     });
 };
-export const getConversationMessages = (conversationId=0) => {
+export const getConversationMessages = (conversationId=0, page,) => {
     return commonAxios.get("/chat/messages/"+ conversationId, {
         params: {
+          page
         }
     });
 };

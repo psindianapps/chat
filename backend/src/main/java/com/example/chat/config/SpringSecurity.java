@@ -1,6 +1,8 @@
 package com.example.chat.config;
 
 import com.example.chat.filter.JwtFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,6 +21,9 @@ import java.util.List;
 @Configuration
 @EnableWebFluxSecurity
 public class SpringSecurity {
+
+    @Value("${app.constant.front-url}")
+    private String frontUrl;
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(
@@ -66,7 +71,7 @@ public class SpringSecurity {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of(frontUrl)
         );
 
         configuration.setAllowedMethods(
