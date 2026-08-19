@@ -57,59 +57,50 @@ button {
   display: flex;
   align-items: center;
 }
-
 .icon-button {
-  width: 36px;
-  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 8px;
   color: #6b7280;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .icon-button:hover {
   background: #f3f4f6;
-  color: #111827;
 }
 
-/* =========================================================
-   DROPDOWN
-========================================================= */
-
+/* Dropdown */
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
 
+  min-width: 140px;
+  padding: 6px;
+
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
 
-  padding: 8px;
-
-  z-index: 40;
-
-  min-width: 140px;
+  z-index: 9999;
 }
 
 .dropdown-item {
+  display: block;
   width: 100%;
-  text-align: left;
 
   padding: 9px 12px;
 
+  text-align: left;
   border-radius: 6px;
 
   background: transparent;
   color: #111827;
 
-  border: none;
   cursor: pointer;
-
-  font-size: 14px;
 }
 
 .dropdown-item:hover {

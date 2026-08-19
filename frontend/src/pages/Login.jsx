@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Eye, EyeOff, Lock, MessageCircle, User } from "lucide-react";
 import "./Login.scss";
 import { Link, useNavigate } from "react-router-dom";
-import { login } from "../apis/apis";
-import alertify from 'alertifyjs';
+import { login } from "../apis/api";
+import alertify from "alertifyjs";
 
 const Login = () => {
   const navigate = useNavigate();

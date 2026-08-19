@@ -1,6 +1,7 @@
 package com.example.chat.respository;
 
 import com.example.chat.entity.MessageEntity;
+import com.example.chat.projection.LastMessageProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -72,7 +73,7 @@ public interface MessagesRepo extends JpaRepository<MessageEntity,Long> {
         LEFT JOIN media_files mf ON mf.id = m.media_id
         WHERE m.conversation_id = :conversationId
             AND m.is_deleted = false
-        ORDER BY m.created_at DESC
+        ORDER BY m.created_at ASC 
         """,
             countQuery = """
         SELECT COUNT(*) FROM messages m 
@@ -83,4 +84,29 @@ public interface MessagesRepo extends JpaRepository<MessageEntity,Long> {
             @Param("conversationId") Long conversationId,
             Pageable pageable
     );
+
+    Page<MessageEntity> findByConversationId(Long conversationId, Pageable pageable);
+
+
+    @Query(value = """
+    SELECT
+        messages.content,
+        receiver.is_online,
+        receiver.profile_pic_url,
+        messages.message_type,
+        messages.created_at,
+        messages.sender_id
+    FROM messages
+    JOIN users AS receiver
+        ON receiver.id = :receiverId
+    WHERE messages.conversation_id = :conversationId
+      AND messages.message_type = 'TEXT'
+    ORDER BY messages.id DESC
+    LIMIT 1
+    """, nativeQuery = true)
+    LastMessageProjection findLastMessageOfConversataion(
+            @Param("conversationId") Long conversationId,
+            @Param("receiverId") Long receiverId
+    );
+
 }

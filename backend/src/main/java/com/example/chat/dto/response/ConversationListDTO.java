@@ -10,11 +10,11 @@ public class ConversationListDTO {
     private String type;
     private String groupName;
     private String groupIconUrl;
-    private Long otherUserId;
-    private String otherUsername;
-    private String otherDisplayName;
-    private String otherProfilePic;
-    private Boolean otherIsOnline;
+    private Long receiverUserId;
+    private String receiverUsername;
+    private String receiverDisplayName;
+    private String receiverProfilePic;
+    private Boolean receiverIsOnline;
     private String lastMessage;
     private String lastMessageType;
     private LocalDateTime lastMessageTime;

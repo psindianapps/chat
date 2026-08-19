@@ -42,3 +42,4 @@ jwt:
 app:
   constant:
     page-size: 10
+    front-url: http://localhost:5173

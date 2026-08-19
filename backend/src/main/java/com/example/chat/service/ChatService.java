@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,7 +48,6 @@ public class ChatService {
 
     @Autowired
     private MessagesRepo messagesRepo;
-
 
     @Autowired
     private MessageStatusRepo messageStatusRepo;
@@ -89,35 +89,43 @@ public class ChatService {
     public ApiResponse<Object> sendMessage(ChatMessageRequest request) throws Exception {
         try {
             UserEntity sender = userRepo.findById(
-                    Long.valueOf(request.getSender())
+                    request.getSender()
             ).orElseThrow(() -> new RuntimeException("Sender not found"));
 
             UserEntity receiver = userRepo.findById(
-                    Long.valueOf(request.getReceiver())
+                    request.getReceiver()
             ).orElseThrow(() -> new RuntimeException("Receiver not found"));
+            ConversationEntity conversation;
+            if(request.getConversationId() == null){
+                conversation = conversationRepo.findIndividualConversationBetween(sender.getId(), receiver.getId())
+                        .orElse(null);
 
-            // 1. Pehle check karo — dono users ke beech conversation already exist karta hai kya
-            ConversationEntity conversation = conversationRepo.findIndividualConversationBetween(sender.getId(), receiver.getId())
-                    .orElse(null);
+                if (conversation == null) {
+                    conversation = new ConversationEntity();
+                    conversation.setType(ConversationTypeEnum.INDIVIDUAL);
+                    conversation.setCreatedBy(sender);
+                    conversation = conversationRepo.save(conversation);
 
-            if (conversation == null) {
-                conversation = new ConversationEntity();
-                conversation.setType(ConversationTypeEnum.INDIVIDUAL);
-                conversation.setCreatedBy(sender);
-                conversation = conversationRepo.save(conversation);
+                    ConversationParticipantEntity senderCpe = new ConversationParticipantEntity();
+                    senderCpe.setConversationId(conversation);
+                    senderCpe.setUserId(sender);
+                    senderCpe.setRole(ConversationRoleEnum.MEMBER);
+                    converstaionParticipantRepo.save(senderCpe);
 
-                ConversationParticipantEntity senderCpe = new ConversationParticipantEntity();
-                senderCpe.setConversationId(conversation);
-                senderCpe.setUserId(sender);
-                senderCpe.setRole(ConversationRoleEnum.MEMBER);
-                converstaionParticipantRepo.save(senderCpe);
-
-                ConversationParticipantEntity receiverCpe = new ConversationParticipantEntity();
-                receiverCpe.setConversationId(conversation);
-                receiverCpe.setUserId(receiver);
-                receiverCpe.setRole(ConversationRoleEnum.MEMBER);
-                converstaionParticipantRepo.save(receiverCpe);
+                    ConversationParticipantEntity receiverCpe = new ConversationParticipantEntity();
+                    receiverCpe.setConversationId(conversation);
+                    receiverCpe.setUserId(receiver);
+                    receiverCpe.setRole(ConversationRoleEnum.MEMBER);
+                    converstaionParticipantRepo.save(receiverCpe);
+                }
+            } else {
+                conversation = conversationRepo.findById(request.getConversationId()).orElseThrow(() ->
+                        new RuntimeException(
+                                "Conversation not found"
+                        )
+                );;
             }
+
 
             // 3. Message insert karo
             MessageEntity messageEntity = new MessageEntity();
@@ -128,7 +136,7 @@ public class ChatService {
             messageEntity.setStatus(MessageStatusEnum.SENT);
             messagesRepo.save(messageEntity);
 
-            return new ApiResponse<>(true, 200, "Message sent", null);
+            return new ApiResponse<>(true, 200, "Message sent", conversation);
 
         } catch (Exception e) {
             throw new Exception("error " + e.getMessage());
@@ -152,11 +160,11 @@ public class ChatService {
         dto.setType((String) row[1]);
         dto.setGroupName((String) row[2]);
         dto.setGroupIconUrl((String) row[3]);
-        dto.setOtherUserId(row[4] != null ? ((Number) row[4]).longValue() : null);
-        dto.setOtherUsername((String) row[5]);
-        dto.setOtherDisplayName((String) row[6]);
-        dto.setOtherProfilePic((String) row[7]);
-        dto.setOtherIsOnline(row[8] != null && (Boolean) row[8]);
+        dto.setReceiverUserId(row[4] != null ? ((Number) row[4]).longValue() : null);
+        dto.setReceiverUsername((String) row[5]);
+        dto.setReceiverDisplayName((String) row[6]);
+        dto.setReceiverProfilePic((String) row[7]);
+        dto.setReceiverIsOnline(row[8] != null && (Boolean) row[8]);
         dto.setLastMessage((String) row[10]);
         dto.setLastMessageType((String) row[11]);
         dto.setLastMessageSenderId(row[13] != null ? ((Number) row[13]).longValue() : null);
@@ -171,8 +179,8 @@ public class ChatService {
         return Mono.fromCallable(() -> {
 
                     // Security check — user isi conversation ka participant hai kya
-                    boolean isParticipant = converstaionParticipantRepo
-                            .existsByConversationIdAndUserId(conversationId, currentUserId);
+                    Long count = converstaionParticipantRepo.countByConversationIdAndUserId(conversationId, currentUserId);
+                    boolean isParticipant = count != null && count > 0;
 
                     if (!isParticipant) {
                         return new ApiResponse<Page<MessageDTO>>(
