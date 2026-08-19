@@ -91,10 +91,18 @@ public class ChatWebSocketHandler implements WebSocketHandler {
             ConversationEntity conversation = (ConversationEntity) objectApiResponse.getData();
             msg.setConversationId(conversation.getId());
 
-            String outgoing = objectMapper.writeValueAsString(msg);
-
             WebSocketSession receiverSession = sessions.get(String.valueOf(msg.getReceiver()));
+
             if (receiverSession != null && receiverSession.isOpen()) {
+                msg.setStatus(MessageStatusEnum.DELIVERED.name());
+
+                MessageStatusEntity statusEntity = new MessageStatusEntity();
+                statusEntity.setMessageId(msg.getId());
+                statusEntity.setUserId(msg.getReceiver());
+                statusEntity.setStatus(MessageStatusEnum.DELIVERED);
+                messageStatusRepo.save(statusEntity);
+
+                String outgoing = objectMapper.writeValueAsString(msg);
                 receiverSession.send(Mono.just(receiverSession.textMessage(outgoing))).subscribe();
             } else {
                 System.out.println("⚠️ Receiver offline, message saved for later delivery: " + msg.getReceiver());
@@ -102,7 +110,8 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
             WebSocketSession senderSession = sessions.get(senderUsername);
             if (senderSession != null && senderSession.isOpen()) {
-                senderSession.send(Mono.just(senderSession.textMessage(outgoing))).subscribe();
+                String outgoingToSender = objectMapper.writeValueAsString(msg); // status reflect karega sender ko bhi
+                senderSession.send(Mono.just(senderSession.textMessage(outgoingToSender))).subscribe();
             }
 
         } catch (Exception e) {
