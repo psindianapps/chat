@@ -48,9 +48,6 @@ public class ChatService {
     @Autowired
     private MessagesRepo messagesRepo;
 
-    @Autowired
-    private Constants constants;
-
 
     @Autowired
     private MessageStatusRepo messageStatusRepo;
